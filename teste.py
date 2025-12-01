@@ -26,35 +26,20 @@ plt.show()
 
 import turtle
 
-config_tank = {1 : -200, 2 : 100}
+g = [1,2,3,6,5]
+g = [-100,-70,-40,-10,20]
 
-# Screen setup
-screen = turtle.Screen()
-screen.setup(width=500, height=500)
-
-def grids(x,y,linhas,colunas,size):
-       pen = turtle.Turtle()
-       pen.speed(0)
-       pen.penup()
-       #comeco da grade
-       pen.goto(x,y)
+def desenho_atomos(corde_x,corde_y):
        
-       #loop com linhas
-       for i in range(linhas):
-              #loop com colunas
-              for j in range(colunas):
-                     #desenhando quadrdos
-                     for _ in range(4):
-                            pen.pendown()
-                            pen.forward(size)
-                            pen.right(90)
-                            pen.penup()
-                     #apos fazer um quadrado vai para a proxima posição
-                     pen.forward(size)
-              #mexe o pincel para a comeca a proxima linha
-              pen.goto(x,y - (i  + 1) * size)
-              
-              
-grids(-200,100,3,3,50)
-grids(100,200, 5 , 5 , 50)
-turtle.done()
+      todos_atomos = []
+      for eixo_x in corde_x:  # Iterar diretamente pelos valores da lista
+        atomo = turtle.Turtle(shape="circle")
+        atomo.penup()
+        atomo.goto(x=eixo_x, y=corde_y)  # Usar o valor diretamente, não como índice
+        todos_atomos.append(atomo)
+
+       
+
+desenho_atomos(g,100)
+
+turtle.mainloop()
