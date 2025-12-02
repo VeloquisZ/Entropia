@@ -1,43 +1,13 @@
-"""
-import matplotlib.pyplot as plt
-import numpy as np
-
-plt.style.use('_mpl-gallery')
-
-# make the data
-np.random.seed(3)
-x = 4 + np.random.normal(0, 2, 24)
-y = 4 + np.random.normal(0, 2, len(x))
-# size and color:
-sizes = np.random.uniform(15, 80, len(x))
-colors = np.random.uniform(15, 80, len(x))
-
-# plot
-fig, ax = plt.subplots()
-
-ax.scatter(x, y, s=sizes, c=colors, vmin=0, vmax=100)
-
-ax.set(xlim=(0, 8), xticks=np.arange(1, 8),
-       ylim=(0, 8), yticks=np.arange(1, 8))
-
-plt.show()
-"""
-
-
-
-
-
-
 import turtle
 import random
 import time
 import numpy as np
 
 # --- CONFIGURAÇÕES GLOBAIS ---
-SIZE_TANQUE = 3     # Matriz da Direita (Tanque)
-SIZE_AMBIENTE = 5   # Matriz da Esquerda (Ambiente)
+SIZE_TANQUE = 5     # Matriz da Direita (Tanque)
+SIZE_AMBIENTE = 7   # Matriz da Esquerda (Ambiente)
 NUM_ATOMS = 9       # Número total de átomos
-N_MOVIMENTOS = 800  # Número de passos de movimento na simulação
+N_MOVIMENTOS = 500  # Número de passos de movimento na simulação
 DELAY = 0.05        # Atraso em segundos entre cada movimento
 
 # --- CONFIGURAÇÕES GRÁFICAS DO TURTLE ---
@@ -64,36 +34,40 @@ def map_coords_to_screen(matrix_id, row, col):
     return x, y
 
 class DualGridSimulator:
-    """Gerencia o estado e a lógica de movimento dos átomos nas duas matrizes."""
+    """Gerencia o estado e a lógica de movimento dos átomos nas duas matrizes, usando NumPy."""
     
     def __init__(self):
         self.sizes = {0: SIZE_AMBIENTE, 1: SIZE_TANQUE} # 0: Ambiente (5x5), 1: Tanque (3x3)
         
         # Estruturas de dados
-        # Ocupação: (matrix_id, row, col) -> bool (Ocupado/Livre)
+        # Ocupação: set{(matrix_id, row, col), ...} para checagem rápida de colisão
         self.occupied_positions = set()
-        # Lista de átomos: [(matrix_id, row, col), ...]
-        self.atoms_list = [] 
-
-        # Inicializa os 9 átomos na Matriz Tanque (3x3) em posições separadas
-        initial_tanque_positions = [(r, c) for r in range(SIZE_TANQUE) for c in range(SIZE_TANQUE)]
         
-        for r, c in initial_tanque_positions:
-            pos = (1, r, c) # Matriz 1 (Tanque), linha r, coluna c
+        # Posições dos átomos: Array NumPy [N, 3] onde [mid, r, c]
+        initial_tanque_positions = []
+        for r in range(SIZE_TANQUE):
+            for c in range(SIZE_TANQUE):
+                initial_tanque_positions.append((1, r, c))
+        # O array atoms_list armazena as coordenadas de todos os 9 átomos
+        self.atoms_list = np.array(initial_tanque_positions, dtype=int) 
+
+        # Preenche o set de ocupação inicial
+        for pos in initial_tanque_positions:
             self.occupied_positions.add(pos)
-            self.atoms_list.append(list(pos)) # Usamos lista para modificar in-place
 
     def move_random_atom(self):
         """
-        Escolhe um átomo, tenta movê-lo em direção aleatória,
+        Escolhe um átomo aleatório e tenta movê-lo,
         checando fronteira, colisão e a ligação especial.
         """
-        if not self.atoms_list:
+        if self.atoms_list.size == 0:
             return False
 
-        # 1. Escolhe um átomo aleatório
+        # 1. Escolhe um átomo aleatório (índice na matriz NumPy)
         idx = random.randrange(len(self.atoms_list))
-        current_mid, current_r, current_c = tuple(self.atoms_list[idx])
+        
+        # Obtém a posição atual do array NumPy
+        current_mid, current_r, current_c = self.atoms_list[idx]
         current_pos = (current_mid, current_r, current_c)
         
         # 2. Escolhe uma direção aleatória (dr, dc): Cima, Baixo, Direita, Esquerda
@@ -105,12 +79,11 @@ class DualGridSimulator:
         target_c = current_c + dc
         
         # --- LÓGICA DA LIGAÇÃO ESPECIAL (MOTOR) ---
-        # Átomo no Tanque (3x3) no bloco inferior esquerdo, tentando ir para a esquerda
+        # Regra: Tanque(1) (0, 0) -> Ambiente(0) (0, 4) se o movimento for para a esquerda (dc == -1)
         if current_mid == 1 and current_r == 0 and current_c == 0 and dc == -1:
-            # Novo destino: Matriz Ambiente (5x5), bloco inferior direito (0, 4)
             target_mid = 0
             target_r = 0
-            target_c = SIZE_AMBIENTE - 1 # 4
+            target_c = SIZE_AMBIENTE - 1 # Posição (0, 4) na matriz 5x5 (0)
 
         # --- LÓGICA DE MOVIMENTO NORMAL/FRONTEIRA ---
         else:
@@ -136,13 +109,13 @@ class DualGridSimulator:
         self.occupied_positions.remove(current_pos)
         self.occupied_positions.add(target_pos)
         
-        # 2. Atualiza a posição na lista de átomos
-        self.atoms_list[idx] = list(target_pos)
+        # 2. Atualiza a posição no array NumPy
+        self.atoms_list[idx] = [target_mid, target_r, target_c]
             
         return True
 
 # ----------------------------------------------------------------------
-## FERRAMENTAS GRÁFICAS (Turtle)
+## FUNÇÕES GRÁFICAS (Turtle)
 
 def draw_grid(t, start_x, start_y, size, color):
     """Desenha as linhas de uma matriz."""
@@ -173,7 +146,7 @@ def setup_screen():
     """Configura a tela do Turtle e desenha as duas matrizes."""
     screen = turtle.Screen()
     screen.setup(width=SCREEN_WIDTH, height=SCREEN_HEIGHT)
-    screen.title("Simulação Dual-Matriz de Entropia")
+    screen.title("Simulação Dual-Matriz de Entropia (NumPy)")
     screen.bgcolor("lightyellow")
     screen.tracer(0) 
     
@@ -186,7 +159,7 @@ def setup_screen():
     # Desenha Matriz Tanque (Direita, 3x3)
     draw_grid(desenhista, START_X_TANQUE, START_Y, SIZE_TANQUE, "red")
 
-    # Indica a Ligação Especial
+    # Indica a Ligação Especial (Motor: Tanque(0,0) -> Ambiente(0,4))
     desenhista.penup()
     desenhista.color("green")
     desenhista.pensize(3)
@@ -194,9 +167,9 @@ def setup_screen():
     # Posição de Saída (Tanque 3x3, 0, 0)
     x1, y1 = map_coords_to_screen(1, 0, 0)
     # Posição de Entrada (Ambiente 5x5, 0, 4)
-    x2, y2 = map_coords_to_screen(0, 0, 4)
+    x2, y2 = map_coords_to_screen(0, 0, SIZE_AMBIENTE - 1)
     
-    # Desenha um marcador de ligação (opcional, apenas para clareza)
+    # Desenha um marcador de ligação 
     desenhista.goto(x1, y1)
     desenhista.dot(10, "green")
     desenhista.goto(x2, y2)
@@ -216,19 +189,20 @@ def create_atom_turtles(num_atoms):
         atomos.append(a)
     return atomos
 
-def update_atoms_and_display(screen, atomos_turtles, atoms_list, passo):
+def update_atoms_and_display(screen, atomos_turtles, atoms_array, passo):
     """Atualiza a posição dos átomos na tela e o status."""
     
-    # Atualiza a posição de cada Turtle
-    for i, pos in enumerate(atoms_list):
-        mid, r, c = pos
+    # Atualiza a posição de cada Turtle usando o array NumPy
+    for i in range(len(atoms_array)):
+        mid, r, c = atoms_array[i]
         x, y = map_coords_to_screen(mid, r, c)
         atomos_turtles[i].goto(x, y)
     
     # Atualiza o texto de status
     status_turtle.clear()
     
-    atomos_no_tanque = sum(1 for mid, r, c in atoms_list if mid == 1)
+    # Conta os átomos no Tanque (mid == 1) usando NumPy
+    atomos_no_tanque = np.sum(atoms_array[:, 0] == 1)
     
     status_turtle.write(
         f"Passo: {passo}/{N_MOVIMENTOS} | Átomos no Tanque (3x3): {atomos_no_tanque}", 
@@ -247,7 +221,7 @@ status_turtle.goto(0, START_Y + SIZE_AMBIENTE * CELL_SIZE / 2 + 50)
 # ----------------------------------------------------------------------
 ## FUNÇÃO PRINCIPAL DA ANIMAÇÃO
 
-def run_dual_grid_simulation():
+def run_dual_grid_simulation_numpy():
     """Executa a simulação principal e a animação."""
     
     screen, _ = setup_screen()
@@ -255,7 +229,7 @@ def run_dual_grid_simulation():
     sim = DualGridSimulator()
     atomos_turtles = create_atom_turtles(len(sim.atoms_list))
     
-    print(f"Iniciando simulação dual-matriz: Tanque ({SIZE_TANQUE}x{SIZE_TANQUE}) e Ambiente ({SIZE_AMBIENTE}x{SIZE_AMBIENTE}).")
+    print(f"Iniciando simulação dual-matriz com NumPy: Tanque ({SIZE_TANQUE}x{SIZE_TANQUE}) e Ambiente ({SIZE_AMBIENTE}x{SIZE_AMBIENTE}).")
     
     for passo in range(N_MOVIMENTOS):
         
@@ -268,9 +242,8 @@ def run_dual_grid_simulation():
         time.sleep(DELAY)
         
         # Condição de parada: Se o tanque (Matriz 3x3) esvaziar
-        if all(mid == 0 for mid, r, c in sim.atoms_list):
+        if np.sum(sim.atoms_list[:, 0] == 1) == 0:
              break
-
 
     # Mensagem final
     status_turtle.goto(0, 0)
@@ -285,4 +258,4 @@ def run_dual_grid_simulation():
 
 if __name__ == "__main__":
     # ATENÇÃO: Descomente a linha abaixo para executar a animação em uma nova janela.
-    run_dual_grid_simulation()
+    run_dual_grid_simulation_numpy()

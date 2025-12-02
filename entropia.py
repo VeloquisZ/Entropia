@@ -19,11 +19,21 @@ screen = turtle.Screen()
 screen.setup(width=500, height=500)
 screen.title("Entropia")
 
-class Atomo():#classe atomo que vai gerencia a localização deles no eixo x e y
-    def __init__(self,x,y):
-        self.x = x
-        self.y = y
+class Entropia():#classe que vai gerencia a logica
+    
+    def __init__(self):
+        self.sizes = {0 : size_ambiente ,1 : size_motor}
+        self.espaco_ocupados = set()
+        initial_tanque_positions = []
+        for r in range(size_ambiente):
+            for c in range(size_motor):
+                initial_tanque_positions.append((1, r, c))
+                
+                self.atoms_list = np.array(initial_tanque_positions, dtype=int) 
 
+        # Preenche o set de ocupação inicial
+        for pos in initial_tanque_positions:
+            self.occupied_positions.add(pos)
 
 def draw_atomo():
     pass
@@ -38,7 +48,7 @@ def grids(x,y,linhas,colunas,size):
        pen.penup()
        #comeco da grade
        pen.goto(x,y)
-       
+       pen.hideturtle()
        #loop com linhas
        for i in range(linhas):
               #loop com colunas
