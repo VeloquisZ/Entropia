@@ -4,7 +4,7 @@ import turtle
 import matplotlib.pyplot as plt
 import numpy as np
 
-# --- Configurações ---
+#Configurações
 size_tank = 3       # tamanho do tank
 size_ambiente = 5   # tamanho do ambiente
 n_movimentos = 900  # numero de passos de movimento na simulação
@@ -26,10 +26,10 @@ largura_total = largura_ambiente + espaco_entre_grads + largura_tank
 # Define onde começa o desenho do ambiente
 inicio_x_ambiente = -largura_total / 2
 
-# Define onde começa o desenho do tank
+#define onde começa o desenho do tank
 inicio_x_tank = inicio_x_ambiente + largura_ambiente + espaco_entre_grads
 
-# Centralização vertical
+#centralização vertical
 inicio_y = -largura_ambiente / 2
 
 def coordenadas_grads(matrix_id, linha, coluna):
@@ -43,7 +43,7 @@ def coordenadas_grads(matrix_id, linha, coluna):
     y = inicio_y + linha * tamanho_grad + tamanho_grad / 2
     return x, y
 
-# --- Classe Lógica ---
+#classe logica
 class Entropia():   
     
     def __init__(self):
