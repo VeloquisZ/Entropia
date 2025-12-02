@@ -10,6 +10,7 @@
 #
 #
 import random
+import time
 import turtle
 import matplotlib.pyplot as plt
 import numpy as np
@@ -183,7 +184,30 @@ def draw_grid(inicio_x, inicio_y, size):
         pen.pendown()
         pen.goto(end_coord_x, y)
         pen.penup()
-
+        
+def att_atomo_tela(screen, atomos_turtles, atoms_array, passo):
+    """Atualiza a posição dos átomos na tela e o status."""
+    
+    # Atualiza a posição de cada Turtle usando o array NumPy
+    for i in range(len(atoms_array)):
+        id, linha, coluna = atoms_array[i]
+        x, y = coordenadas_grads(id, linha, coluna)
+        atomos_turtles[i].goto(x, y)
+        
+         
+    # Atualiza o texto de status
+    pen.clear()
+        
+   # Conta os átomos no Tanque (mid == 1) usando NumPy
+    atomos_no_tanque = np.sum(atoms_array[:, 0] == 1)
+    
+    pen.write(
+        
+        f"Passo: {passo}/{n_movimentos} | Átomos no Tanque (3x3): {atomos_no_tanque}", 
+        align="center", font=("Arial", 14, "bold")
+    )
+    
+    screen.update()
 #configurações da tela
 def config_tela():
     """Configura a tela do Turtle e desenha as duas matrizes."""
@@ -216,5 +240,43 @@ def config_tela():
     
     return screen, pen
 
+def run_dual_grid_simulation_numpy():
+    """Executa a simulação principal e a animação."""
+    
+    screen, _ = config_tela()
+    
+    entro = Entropia()
+    atomos_turtles = draw_atomos(len(entro.lista_atomos))
+    
+    print(f"Iniciando simulação dual-matriz com NumPy: Tanque ({size_tank}x{size_tank}) e Ambiente ({size_ambiente}x{size_ambiente}).")
+    
+    for passo in range(n_movimentos):
+        
+        # Lógica de movimento
+        entro.move_random_atom()
+        
+        # Atualização gráfica
+        att_atomo_tela(screen, atomos_turtles, entro.lista_atomos, passo + 1)
+        
+        time.sleep(delay)
+        
+        # Condição de parada: Se o tanque (Matriz 3x3) esvaziar
+        if np.sum(entro.lista_atomos[:, 0] == 1) == 0:
+             break
+
+    # Mensagem final
+    pen.goto(0, 0)
+    pen.color("darkgreen")
+    pen.write(
+        f"SIMULAÇÃO CONCLUÍDA após {passo + 1} passos.", 
+        align="center", font=("Arial", 16, "bold")
+    )
+    screen.update()
+    
+    screen.mainloop()
+
+if __name__ == "__main__":
+    # ATENÇÃO: Descomente a linha abaixo para executar a animação em uma nova janela.
+    run_dual_grid_simulation_numpy()
 
 turtle.done()

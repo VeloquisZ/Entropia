@@ -1,236 +1,252 @@
-import numpy as np
 import random
+import time
+import turtle
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import math
-from itertools import product
+import numpy as np
 
-# --- CONFIGURAÇÕES GLOBAIS ---
-SIZE_TANQUE = 5     # Matriz da Direita (Tanque)
-SIZE_AMBIENTE = 5   # Matriz da Esquerda (Ambiente)
-NUM_ATOMS = 9       # Número total de átomos
-N_MOVIMENTOS = 1000 # Número de passos na simulação (Loop da animação)
-INTERVAL = 50       # Intervalo de atualização da animação em ms
 
-# --- CÁLCULO DAS POSSIBILIDADES (PRÉ-CÁLCULO DA ENTROPIA) ---
-T_CELLS = SIZE_TANQUE * SIZE_TANQUE    # 9
-M_CELLS = SIZE_AMBIENTE * SIZE_AMBIENTE # 25
+size_tank = 3     # tamanho do tank - CORRIGIDO: mudado de 5 para 3
+size_ambiente = 5   # tamanho do ambiente - CORRIGIDO: mudado de 7 para 5
+num_atom = 9       # Número total de átomos
+n_movimentos = 500  # Número de passos de movimento na simulação
+delay = 0.05        # Atraso em segundos entre cada movimento
 
-# Pré-calcula S = ln(Omega) para todos os estados possíveis.
-# A chave do dicionário é o número de átomos FORA do Tanque (NA).
-ln_omega_values = {}
-for nt in range(NUM_ATOMS + 1):
-    na = NUM_ATOMS - nt # Número de átomos Fora do Tanque (Eixo X)
-    
-    # Se o número de átomos exceder o número de células em qualquer matriz, Omega = 0
-    if nt > T_CELLS or na > M_CELLS:
-        ln_omega_values[na] = -np.inf 
-        continue
-    
-    # Cálculo das Permutações P(n, k) = n! / (n-k)! usando lgamma (ln de fatorial)
-    # Permutações no Tanque (PT)
-    log_p_t = math.lgamma(T_CELLS + 1) - math.lgamma(T_CELLS - nt + 1)
-    
-    # Permutações no Ambiente (PM)
-    log_p_m = math.lgamma(M_CELLS + 1) - math.lgamma(M_CELLS - na + 1)
-    
-    # Entropia S = ln(Omega) = ln(PT * PM) = log_p_t + log_p_m
-    ln_omega_values[na] = log_p_t + log_p_m
+#configurações da tela
+tamanho_grad = 60
+espaco_entre_grads = 50 
+tela_largura = (size_ambiente + size_tank) * tamanho_grad + espaco_entre_grads + 100
+tela_altura = size_ambiente * tamanho_grad + 100
 
-class DualGridSimulator:
-    """Gerencia a lógica de movimento e estado, usando NumPy."""
+
+# Largura dos componentes individuais
+largura_ambiente = size_ambiente * tamanho_grad
+largura_tank = size_tank * tamanho_grad
+
+# Soma tudo o que será desenhado horizontalmente
+largura_total = largura_ambiente + espaco_entre_grads + largura_tank
+
+# Define onde começa o desenho do ambiente
+inicio_x_ambiente = -largura_total / 2
+
+# Define onde começa o desenho do tank
+inicio_x_tank = inicio_x_ambiente + largura_ambiente + espaco_entre_grads
+
+# Centralização vertical
+inicio_y = -largura_ambiente / 2
+
+def coordenadas_grads(matrix_id, linha, coluna):
+    """Mapeia coordenadas (id da matriz, linha, coluna) para coordenadas (x, y) da tela."""
+    if matrix_id == 0:  # Ambiente
+        start_x = inicio_x_ambiente
+    else:  # Tanque
+        start_x = inicio_x_tank
+
+    x = start_x + coluna * tamanho_grad + tamanho_grad / 2
+    y = inicio_y + linha * tamanho_grad + tamanho_grad / 2
+    return x, y
+
+#classe que vai gerencia a logica
+class Entropia():   
     
     def __init__(self):
-        self.sizes = {0: SIZE_AMBIENTE, 1: SIZE_TANQUE} # 0: Ambiente, 1: Tanque
-        self.occupied_positions = set()
         
-        # Posições dos átomos: Array NumPy [N, 3] onde [mid, r, c]
-        initial_tanque_positions = list(product(range(1, 2), range(SIZE_TANQUE), range(SIZE_TANQUE)))
-        self.atoms_list = np.array(initial_tanque_positions, dtype=int) 
+        #id: 0 ambiente , 1 tank
+        self.sizes = {0 : size_ambiente ,1 : size_tank}
+        
+        #espacos ocupados
+        self.posicoes_ocupadas = set()
+        
+        posicao_inicial_tank = []
+        
+        for linha in range(size_tank):
+            for coluna in range(size_tank):
+                posicao_inicial_tank.append((1, linha, coluna))
+                
+        self.lista_atomos = np.array(posicao_inicial_tank, dtype=int) 
 
-        for mid, r, c in self.atoms_list:
-            self.occupied_positions.add((mid, r, c))
-            
-        # Rastreia o estado macro pelo número de átomos no Tanque
-        self.current_nt = NUM_ATOMS 
-        self.current_na = 0 # Inicialmente, 0 átomos fora do tanque
-        self.current_entropy = ln_omega_values[0] # Entropia em NA=0 (NT=9)
+        # Preenche o set de ocupação inicial
+        for posicao in posicao_inicial_tank:
+            self.posicoes_ocupadas.add(posicao)
+    
+    
+    def movento_aleatorio_atomo(self):
+        """
+        Escolhe um atomo aleatorio e tenta move ele,
+        checando limites de linhas, colisão e a passagem.
+        """
+        if self.lista_atomos.size == 0:
+            return False
 
-    def move_random_atom(self):
+        # 1. Escolhe um átomo aleatório (índice na matriz NumPy)
+        index = random.randrange(len(self.lista_atomos))
         
-        idx = random.randrange(len(self.atoms_list))
-        current_mid, current_r, current_c = self.atoms_list[idx]
-        current_pos = (current_mid, current_r, current_c)
+        # Obtém a posição atual do array NumPy
+        id_matriz, indix_linha, index_coluna = self.lista_atomos[index]
+        posicao_atual = (id_matriz, indix_linha, index_coluna)
         
+        # 2. Escolhe uma direção aleatória (dr, dc): Cima, Baixo, Direita, Esquerda
         directions = [(1, 0), (-1, 0), (0, 1), (0, -1)] 
-        dr, dc = random.choice(directions)
+        direcao_linha, direcao_coluna = random.choice(directions)
         
-        target_mid = current_mid
-        target_r = current_r + dr
-        target_c = current_c + dc
+        id_matriz_temporario = id_matriz
+        nova_linha = indix_linha + direcao_linha
+        nova_coluna = index_coluna + direcao_coluna
         
-        # --- LIGAÇÃO ESPECIAL (MOTOR: Tanque(1) (0, 0) -> Ambiente(0) (0, 4) se movimento Esquerda)
-        if current_mid == 1 and current_r == 0 and current_c == 0 and dc == -1:
-            target_mid = 0
-            target_r = 0
-            target_c = SIZE_AMBIENTE - 1
-            moved_across_link = True # Movimento 1 -> 0 (Tanque -> Ambiente)
-
-        # --- MOVIMENTO NORMAL/FRONTEIRA ---
+        # --- logica de passagem ---
+        # CORREÇÃO: O comentário diz "campo inferior esquerdo", mas o código original usava superior
+        # Mantendo a lógica original: Tanque(0,0) -> Ambiente(0,4) quando vai para esquerda
+        if id_matriz == 1 and indix_linha == 0 and index_coluna == 0 and direcao_coluna == -1:
+            id_matriz_temporario = 0
+            nova_linha = 0
+            nova_coluna = size_ambiente - 1
+            
+        # CORREÇÃO: Retorno do ambiente para o tanque
+        elif id_matriz == 0 and indix_linha == 0 and index_coluna == size_ambiente - 1 and direcao_coluna == 1:
+            id_matriz_temporario = 1
+            nova_linha = 0
+            nova_coluna = 0
+            
+        #logica de movimento normal/limite
         else:
-            size = self.sizes[current_mid]
-            is_in_bounds = (0 <= target_r < size and 0 <= target_c < size)
+            # 3. Checagem de limite (fronteira)
+            size = self.sizes[id_matriz]
+            is_in_bounds = (0 <= nova_linha < size and 0 <= nova_coluna < size)
             
             if not is_in_bounds:
-                return 
+                return False
         
-        target_pos = (target_mid, target_r, target_c)
+        # Posição de destino final (pode ser na mesma matriz ou na outra)
+        posicao_final = (id_matriz_temporario, nova_linha, nova_coluna)
         
-        # Checagem de Colisão (Exclusão de Volume)
-        if target_pos in self.occupied_positions:
-            return 
+        # 4. Checagem de Colisão (Se o bloco de destino está ocupado)
+        checar_colicao = posicao_final in self.posicoes_ocupadas
+        
+        if checar_colicao:
+            return False
 
-        # --- MOVIMENTO BEM-SUCEDIDO ---
+        # movimento bem-sucedido
+        self.posicoes_ocupadas.remove(posicao_atual)
+        self.posicoes_ocupadas.add(posicao_final)
         
-        self.occupied_positions.remove(current_pos)
-        self.occupied_positions.add(target_pos)
-        self.atoms_list[idx] = [target_mid, target_r, target_c]
-        
-        # 2. Atualiza a Entropia
-        if current_mid != target_mid:
-            # Se saiu do tanque (1 -> 0): Nt diminui em 1 (NA aumenta em 1)
-            if current_mid == 1:
-                self.current_nt -= 1
-            # Se entrou no tanque (0 -> 1): Nt aumenta em 1 (NA diminui em 1)
-            else: 
-                self.current_nt += 1
-                
-            self.current_na = NUM_ATOMS - self.current_nt
-            self.current_entropy = ln_omega_values[self.current_na]
+        #atualiza a posição no array NumPy
+        self.lista_atomos[index] = [id_matriz_temporario, nova_linha, nova_coluna]
+            
+        return True
 
-# ----------------------------------------------------------------------
-## FUNÇÕES DE VISUALIZAÇÃO E ANIMAÇÃO (Matplotlib)
+# Criar um turtle separado para desenhar as grades
+grade_turtle = turtle.Turtle()
+grade_turtle.hideturtle()
 
-def draw_grid_lines(ax, start_x, start_y, size, color, label):
-    """Desenha as linhas da matriz e rótulo."""
+def draw_atomos(num_atoms):
+    """CORREÇÃO: Cria um objeto Turtle separado para CADA átomo."""
+    atomos = []
+    for _ in range(num_atoms):
+        a = turtle.Turtle()  # CORREÇÃO: Cria NOVO objeto para cada átomo
+        a.shape("circle")
+        a.color("orange")  # CORREÇÃO: Adiciona cor
+        a.turtlesize(tamanho_grad / 30) 
+        a.penup()
+        a.hideturtle()  # Esconde até ser posicionado
+        atomos.append(a)
+    return atomos
+
+def draw_grid(turtle_obj, inicio_x, inicio_y, size, color):
+    """Desenha as linhas de uma matriz."""
+    turtle_obj.speed(0)
+    turtle_obj.penup()
+    turtle_obj.pensize(2)
+    turtle_obj.color(color)
     
-    # Desenha linhas verticais e horizontais
+    end_coord_x = inicio_x + size * tamanho_grad
+    end_coord_y = inicio_y + size * tamanho_grad
+    
     for i in range(size + 1):
-        ax.plot([start_x + i, start_x + i], [start_y, start_y + size], color=color, linewidth=1)
-        ax.plot([start_x, start_x + size], [start_y + i, start_y + i], color=color, linewidth=1)
-
-    # Rótulo da matriz
-    ax.text(start_x + size / 2, start_y + size + 0.5, label, 
-            ha='center', va='center', color=color, fontsize=10, fontweight='bold')
-
-def setup_plot():
-    """Configura o layout de subplots para matrizes e gráfico de Entropia."""
-    
-    fig = plt.figure(figsize=(12, 6))
-    
-    # Subplot 1: Visualização das Matrizes (Ocupa 2/3 da largura)
-    gs = fig.add_gridspec(1, 3, wspace=0.3)
-    ax_sim = fig.add_subplot(gs[0, :2])
-    
-    # Subplot 2: Gráfico de Entropia (Ocupa 1/3 da largura)
-    ax_hist = fig.add_subplot(gs[0, 2])
-    
-    # --- Configurações da Simulação (Matrizes) ---
-    
-    # Mapa de coordenadas: (mid, r, c) -> (x_plot, y_plot)
-    ax_start_x_tanque = SIZE_AMBIENTE + 1 
-    ax_sim.set_xlim(-0.5, ax_start_x_tanque + SIZE_TANQUE + 0.5)
-    ax_sim.set_ylim(-0.5, SIZE_AMBIENTE + 0.5)
-    ax_sim.set_aspect('equal', adjustable='box')
-    ax_sim.axis('off') 
-    
-    draw_grid_lines(ax_sim, 0, 0, SIZE_AMBIENTE, 'blue', 'AMBIENTE (5x5) - Esquerda')
-    draw_grid_lines(ax_sim, ax_start_x_tanque, 0, SIZE_TANQUE, 'red', 'TANQUE (3x3) - Direita')
-    
-    # Linha da Ligação (Motor: Ambiente(0,4) e Tanque(0,0))
-    ax_sim.plot([SIZE_AMBIENTE - 1 + 0.5, ax_start_x_tanque + 0.5], [0.5, 0.5], 'g--', linewidth=2, alpha=0.7)
-    
-    # Scatter plot para os átomos
-    scatter = ax_sim.scatter([], [], color='orange', s=200, edgecolors='black', zorder=5)
-    
-    # Texto de status
-    text = ax_sim.text(0.5, -0.1, '', transform=ax_sim.transAxes, ha='center', fontsize=10, fontweight='bold')
-    
-    # --- Configurações do Gráfico de Entropia ---
-    
-    ax_hist.bar(ln_omega_values.keys(), ln_omega_values.values(), color='lightgray', edgecolor='black')
-    ax_hist.set_title('Entropia $S = \ln \Omega$')
-    ax_hist.set_xlabel('Átomos Fora do Tanque ($N_A$)')
-    ax_hist.set_ylabel('Logaritmo do Número de Possibilidades ($\ln \Omega$)')
-    ax_hist.set_xticks(range(NUM_ATOMS + 1))
-    ax_hist.grid(True, axis='y', alpha=0.5)
-    
-    # Linha vertical para indicar o estado atual
-    line, = ax_hist.plot([], [], 'r-', linewidth=3, label='Estado Atual')
-    
-    return fig, ax_sim, ax_hist, scatter, line, text
-
-def update_plot(frame, sim, scatter, line, text, ax_hist):
-    """Função de atualização chamada pela animação."""
-    
-    # Realiza um passo da simulação
-    sim.move_random_atom()
-    
-    # --- Atualiza Visualização da Simulação (Scatter Plot) ---
-    
-    positions = []
-    ax_start_x_tanque = SIZE_AMBIENTE + 1 
-    
-    # Mapeia as coordenadas (mid, r, c) para (x_sim, y_sim) para Matplotlib
-    for mid, r, c in sim.atoms_list:
-        # Note que a ordem é (coluna + offset, linha)
-        if mid == 0: # Ambiente (Esquerda)
-            x_plot = c + 0.5
-        else: # Tanque (Direita)
-            x_plot = c + 0.5 + ax_start_x_tanque
+        # Linhas Verticais
+        x = inicio_x + i * tamanho_grad
+        turtle_obj.goto(x, inicio_y)
+        turtle_obj.pendown()
+        turtle_obj.goto(x, end_coord_y)
+        turtle_obj.penup()
         
-        y_plot = r + 0.5
-        positions.append([x_plot, y_plot])
-    
-    if positions:
-        positions_np = np.array(positions)
-        scatter.set_offsets(positions_np)
-    
-    # --- Atualiza Gráfico de Entropia (Bar Plot) ---
-    
-    current_na = sim.current_na
-    current_entropy = sim.current_entropy
-    
-    # Mapeia a linha vertical para a Entropia atual usando N_A
-    line.set_data([current_na, current_na], [ax_hist.get_ylim()[0], current_entropy])
-    
-    # Atualiza o texto de status
-    text.set_text(f'Passo: {frame+1}/{N_MOVIMENTOS} | $N_A$ (Fora do Tanque): {current_na} | $\ln(\\Omega)$: {current_entropy:.2f}')
-    
-    return scatter, line, text
+        # Linhas Horizontais
+        y = inicio_y + i * tamanho_grad
+        turtle_obj.goto(inicio_x, y)
+        turtle_obj.pendown()
+        turtle_obj.goto(end_coord_x, y)
+        turtle_obj.penup()
 
-def run_simulation_with_plot():
-    """Configura e executa a simulação e o gráfico integrados."""
+def att_atomo_tela(screen, atomos_turtles, atoms_array):
+    """Atualiza a posição dos átomos na tela e o status."""
     
-    sim = DualGridSimulator()
-    fig, ax_sim, ax_hist, scatter, line, text = setup_plot()
+    # Mostra todos os átomos
+    for turtle_obj in atomos_turtles:
+        turtle_obj.showturtle()
+    
+    # Atualiza a posição de cada Turtle usando o array NumPy
+    for i in range(len(atoms_array)):
+        id_mat, linha, coluna = atoms_array[i]
+        x, y = coordenadas_grads(id_mat, linha, coluna)
+        atomos_turtles[i].goto(x, y)
+    
+    screen.update()
 
-    # Define a posição inicial no gráfico de Entropia (N_A=0)
-    line.set_data([sim.current_na, sim.current_na], [ax_hist.get_ylim()[0], sim.current_entropy])
+#configurações da tela
+def config_tela():
+    """Configura a tela do Turtle e desenha as duas matrizes."""
+    screen = turtle.Screen()
+    screen.setup(width=tela_largura, height=tela_altura)
+    screen.title("Entropia - Simulação de Átomos")
+    screen.tracer(0) 
+
+    # Desenha Matriz ambiente (Esquerda, 5x5) - CORREÇÃO: Adiciona cor
+    draw_grid(grade_turtle, inicio_x_ambiente, inicio_y, size_ambiente, "blue")
     
-    # O loop da animação é gerenciado pelo FuncAnimation
-    anim = animation.FuncAnimation(
-        fig, 
-        update_plot, 
-        frames=N_MOVIMENTOS, 
-        fargs=(sim, scatter, line, text, ax_hist),
-        interval=INTERVAL, 
-        blit=True, 
-        repeat=False
-    )
+    # Desenha Matriz tank (Direita, 3x3) - CORREÇÃO: Adiciona cor
+    draw_grid(grade_turtle, inicio_x_tank, inicio_y, size_tank, "red")
+
+    # Indica a passagem tank(0,0) -> ambiente(0,4))
+    grade_turtle.penup()
+    grade_turtle.color("gray")
+    grade_turtle.pensize(3)
     
-    # Abre a janela do Matplotlib e executa a simulação
-    plt.show()
+    # Posição de Saída (tank 3x3, 0, 0)
+    x1, y1 = coordenadas_grads(1, 0, 0)
+    # Posição de Entrada (ambiente 5x5, 0, 4)
+    x2, y2 = coordenadas_grads(0, 0, size_ambiente - 1)
+    
+    # Desenha um marcador de ligação 
+    grade_turtle.goto(x1, y1)
+    grade_turtle.dot(10, "gray")
+    grade_turtle.goto(x2, y2)
+    grade_turtle.dot(10, "gray")
+    return screen
+
+def run_dual_grid_simulation_numpy():
+    """Executa a simulação principal e a animação."""
+    
+    screen = config_tela()
+    
+    entro = Entropia()
+    atomos_turtles = draw_atomos(len(entro.lista_atomos))
+    
+    # Cria um turtle separado para o texto de status
+    status_turtle = turtle.Turtle()
+    status_turtle.penup()
+    status_turtle.hideturtle()
+    status_turtle.goto(0, inicio_y + size_ambiente * tamanho_grad / 2 + 50)
+    
+    for passo in range(n_movimentos):
+        
+        # Lógica de movimento
+        entro.movento_aleatorio_atomo()
+        
+        # Atualização gráfica
+        att_atomo_tela(screen, atomos_turtles, entro.lista_atomos)
+        
+        time.sleep(delay)
+        
+        
+    turtle.done()
 
 if __name__ == "__main__":
-    run_simulation_with_plot()
+    run_dual_grid_simulation_numpy()
