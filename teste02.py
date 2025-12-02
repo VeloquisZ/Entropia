@@ -7,7 +7,7 @@ import numpy as np
 SIZE_TANQUE = 3     # Matriz da Direita (Tanque)
 SIZE_AMBIENTE = 5   # Matriz da Esquerda (Ambiente)
 NUM_ATOMS = 9       # Número total de átomos
-N_MOVIMENTOS = 500  # Número de passos de movimento na simulação
+N_MOVIMENTOS = 900  # Número de passos de movimento na simulação
 DELAY = 0.05        # Atraso em segundos entre cada movimento
 
 # --- CONFIGURAÇÕES GRÁFICAS DO TURTLE ---
@@ -76,50 +76,55 @@ class DualGridSimulator:
         idx = random.randrange(len(self.atoms_list))
         
         # Obtém a posição atual do array NumPy
-        current_mid, current_r, current_c = self.atoms_list[idx]
-        current_pos = (current_mid, current_r, current_c)
+        id_matriz, indix_linha, index_coluna = self.atoms_list[idx]
+        posicao_atual = (id_matriz, indix_linha, index_coluna)
         
         # 2. Escolhe uma direção aleatória (dr, dc): Cima, Baixo, Direita, Esquerda
         directions = [(1, 0), (-1, 0), (0, 1), (0, -1)] 
-        dr, dc = random.choice(directions)
+        direcao_linha, direcao_coluna = random.choice(directions)
         
-        target_mid = current_mid
-        target_r = current_r + dr
-        target_c = current_c + dc
+        id_matriz_temporario = id_matriz
+        nova_linha = indix_linha + direcao_linha
+        nova_coluna = index_coluna + direcao_coluna
         
         # --- LÓGICA DA LIGAÇÃO ESPECIAL (MOTOR) ---
         # Regra: Tanque(1) (0, 0) -> Ambiente(0) (0, 4) se o movimento for para a esquerda (dc == -1)
-        if current_mid == 1 and current_r == 0 and current_c == 0 and dc == -1:
-            target_mid = 0
-            target_r = 0
-            target_c = SIZE_AMBIENTE - 1 # Posição (0, 4) na matriz 5x5 (0)
+        if id_matriz == 1 and indix_linha == 0 and index_coluna == 0 and direcao_coluna == -1:
+            id_matriz_temporario = 0
+            nova_linha = 0
+            nova_coluna = SIZE_AMBIENTE - 1 # Posição (0, 4) na matriz 5x5 (0)
 
-        # --- LÓGICA DE MOVIMENTO NORMAL/FRONTEIRA ---
+        elif id_matriz == 0 and indix_linha == 0 and index_coluna == SIZE_AMBIENTE - 1 and direcao_coluna == 1:
+            id_matriz_temporario = 1
+            nova_linha = 0
+            nova_coluna = 0
+
+        # --- LÓGICA DE MOVIMENTO NORMAL/FRONTEIRA 
         else:
             # 3. Checagem de Limite (Fronteira)
-            size = self.sizes[current_mid]
-            is_in_bounds = (0 <= target_r < size and 0 <= target_c < size)
+            size = self.sizes[id_matriz]
+            is_in_bounds = (0 <= nova_linha < size and 0 <= nova_coluna < size)
             
             if not is_in_bounds:
                 return False # Movimento negado por limite de fronteira
         
         # Posição de destino final (pode ser na mesma matriz ou na outra)
-        target_pos = (target_mid, target_r, target_c)
+        posicao_final = (id_matriz_temporario, nova_linha, nova_coluna)
         
         # 4. Checagem de Colisão (Se o bloco de destino está ocupado)
-        is_colliding = target_pos in self.occupied_positions
+        checar_colicao = posicao_final in self.occupied_positions
         
-        if is_colliding:
+        if checar_colicao:
             return False # Movimento negado por colisão
 
         # --- MOVIMENTO BEM-SUCEDIDO ---
         
         # 1. Atualiza as estruturas de dados de ocupação
-        self.occupied_positions.remove(current_pos)
-        self.occupied_positions.add(target_pos)
+        self.occupied_positions.remove(posicao_atual)
+        self.occupied_positions.add(posicao_final)
         
         # 2. Atualiza a posição no array NumPy
-        self.atoms_list[idx] = [target_mid, target_r, target_c]
+        self.atoms_list[idx] = [id_matriz_temporario, nova_linha, nova_coluna]
             
         return True
 

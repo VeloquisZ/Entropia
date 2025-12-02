@@ -9,6 +9,7 @@
 #
 #
 #
+import random
 import turtle
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,18 +74,91 @@ class Entropia():
                 
                 posicao_inicial_tank.append((1, linha, coluna))
                 
-                self.atoms_list = np.array(posicao_inicial_tank, dtype=int) 
+        self.lista_atomos = np.array(posicao_inicial_tank, dtype=int) 
 
         # Preenche o set de ocupação inicial
         for posicao in posicao_inicial_tank:
             self.posicoes_ocupadas.add(posicao)
+    
+    
+    def movento_aleatorio_atomo(self):
+        """
+        Escolhe um atomo aleatorio e tenta move ele,
+        checando limites de linhas, colisão e a passagem.
+        """
+        if self.lista_atomos.size == 0:
+            return False
+
+        # 1. Escolhe um átomo aleatório (índice na matriz NumPy)
+        index = random.randrange(len(self.lista_atomos))
+        
+        # Obtém a posição atual do array NumPy
+        id_matriz, indix_linha, index_coluna = self.lista_atomos[index]
+        posicao_atual = (id_matriz, indix_linha, index_coluna)
+        
+        # 2. Escolhe uma direção aleatória (dr, dc): Cima, Baixo, Direita, Esquerda
+        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)] 
+        direcao_linha, direcao_coluna = random.choice(directions)
+        
+        id_matriz_temporario = id_matriz
+        nova_linha = indix_linha + direcao_linha
+        nova_coluna = index_coluna + direcao_coluna
+        
+        # --- logica de passagem ---
+        # Regra: tank(1) (0, 0) -> ambiente(0) (0, 4) se o movimento for para a esquerda (direcao_coluna == -1)
+        if id_matriz == 1 and indix_linha == 0 and index_coluna == 0 and direcao_coluna == -1:
+            id_matriz_temporario = 0
+            nova_linha = 0
+            nova_coluna = size_ambiente - 1 # Posição (0, 4) na matriz 5x5 (0)
+            
+        elif id_matriz == 0 and indix_linha == 0 and index_coluna == size_ambiente - 1 and direcao_coluna == 1:
+            id_matriz_temporario = 1
+            nova_linha = 0
+            nova_coluna = 0
+            
+        #logica de movimento normal/limite
+        else:
+            # 3. Checagem de limite (fronteira)
+            size = self.sizes[id_matriz]
+            #obtem tamanho da matriz atual
+            is_in_bounds = (0 <= nova_linha < size and 0 <= nova_coluna < size)
+            
+            if not is_in_bounds:
+                return False # movimento negado por limite de fronteira
+        
+        # Posição de destino final (pode ser na mesma matriz ou na outra)
+        posicao_final = (id_matriz_temporario, nova_linha, nova_coluna)
+        
+        # 4. Checagem de Colisão (Se o bloco de destino está ocupado)
+        checar_colicao = posicao_final in self.posicoes_ocupadas
+        
+        if checar_colicao:
+            return False # movimento negado por colisão
+
+        # movimento bem-sucedido
+        
+        #atualiza a variavel de ocupação
+        self.posicoes_ocupadas.remove(posicao_atual)
+        self.posicoes_ocupadas.add(posicao_final)
+        
+        #atualiza a posição no array NumPy
+        self.lista_atomos[index] = [id_matriz_temporario, nova_linha, nova_coluna]
+            
+        return True
 
 
 pen = turtle.Turtle()
 pen.hideturtle()
 
-def draw_atomo():
-    pass
+def draw_atomos(num_atoms):
+    """desenhas os átomos."""
+    atomos = []
+    for _ in range(num_atoms):
+        pen.shape("circle")
+        pen.turtlesize(tamanho_grad / 30) 
+        pen.penup()
+        atomos.append(pen)
+    return atomos
 
 def draw_grid(inicio_x, inicio_y, size):
     """Desenha as linhas de uma matriz."""
@@ -118,20 +192,20 @@ def config_tela():
     screen.title("Entropia")
     screen.tracer(0) 
 
-    # Desenha Matriz Ambiente (Esquerda, 5x5)
+    # Desenha Matriz ambiente (Esquerda, 5x5)
     draw_grid(inicio_x_ambiente, inicio_y, size_ambiente)
     
-    # Desenha Matriz Tanque (Direita, 3x3)
+    # Desenha Matriz tank (Direita, 3x3)
     draw_grid(inicio_x_tank, inicio_y, size_tank)
 
-    # Indica a Ligação Especial (Motor: Tanque(0,0) -> Ambiente(0,4))
+    # Indica a passagem tank(0,0) -> ambiente(0,4))
     pen.penup()
     pen.color("gray")
     pen.pensize(3)
     
-    # Posição de Saída (Tanque 3x3, 0, 0)
+    # Posição de Saída (tank 3x3, 0, 0)
     x1, y1 = coordenadas_grads(1, 0, 0)
-    # Posição de Entrada (Ambiente 5x5, 0, 4)
+    # Posição de Entrada (ambiente 5x5, 0, 4)
     x2, y2 = coordenadas_grads(0, 0, size_ambiente - 1)
     
     # Desenha um marcador de ligação 
