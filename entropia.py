@@ -15,7 +15,7 @@ import numpy as np
 
 
 size_tank = 5     # tamanho do tank
-size_ambiente = 7   # tamanho do Ambiente
+size_ambiente = 7   # tamanho do ambiente
 num_atom = 9       # Número total de átomos
 n_movimentos = 500  # Número de passos de movimento na simulação
 delay = 0.05        # Atraso em segundos entre cada movimento
@@ -34,24 +34,44 @@ largura_tank = size_tank * tamanho_grad
 # Soma tudo o que será desenhado horizontalmente
 largura_total = largura_ambiente + espaco_entre_grads + largura_tank
 
-# Define onde começa o desenho da esquerda (Ambiente)
+# Define onde começa o desenho do ambiente
 inicio_x_ambiente = -largura_total / 2
 
+# Define onde começa o desenho do tank
 inicio_x_tank = inicio_x_ambiente + largura_ambiente + espaco_entre_grads
 
 # Centralização vertical
 inicio_y = -largura_ambiente / 2
 
+def coordenadas_grads(matrix_id, linha, coluna):
+    """Mapeia coordenadas (id da matriz, linha, coluna) para coordenadas (x, y) da tela."""
+    if matrix_id == 0:  # Ambiente (5x5)
+        start_x = inicio_x_ambiente
+    else:  # Tanque (3x3)
+        start_x = inicio_x_tank
+
+    x = start_x + coluna * tamanho_grad + tamanho_grad / 2
+    y = inicio_y + linha * tamanho_grad + tamanho_grad / 2
+    return x, y
+
 #classe que vai gerencia a logica
 class Entropia():   
     
     def __init__(self):
+        
+        #id: 0 ambiente , 1 tank
         self.sizes = {0 : size_ambiente ,1 : size_tank}
-        self.espaco_ocupados = set()
+        
+        #espacos ocupados
+        self.posicoes_ocupadas = set()
+        
         posicao_inicial_tank = []
-        for r in range(size_ambiente):
-            for c in range(size_tank):
-                posicao_inicial_tank.append((1, r, c))
+        
+        for linha in range(size_tank):
+            
+            for coluna in range(size_tank):
+                
+                posicao_inicial_tank.append((1, linha, coluna))
                 
                 self.atoms_list = np.array(posicao_inicial_tank, dtype=int) 
 
@@ -106,12 +126,13 @@ def config_tela():
 
     # Indica a Ligação Especial (Motor: Tanque(0,0) -> Ambiente(0,4))
     pen.penup()
+    pen.color("gray")
     pen.pensize(3)
     
     # Posição de Saída (Tanque 3x3, 0, 0)
-    x1, y1 = map_coords_to_screen(1, 0, 0)
+    x1, y1 = coordenadas_grads(1, 0, 0)
     # Posição de Entrada (Ambiente 5x5, 0, 4)
-    x2, y2 = map_coords_to_screen(0, 0, size_ambiente - 1)
+    x2, y2 = coordenadas_grads(0, 0, size_ambiente - 1)
     
     # Desenha um marcador de ligação 
     pen.goto(x1, y1)
@@ -121,8 +142,5 @@ def config_tela():
     
     return screen, pen
 
-
-#grids(x = -200, y = 100, colunas = 3, linhas = 3, size = 50)
-#grids(x = 100, y = 200, colunas = 5, linhas = 5, size = 50)
 
 turtle.done()
