@@ -4,8 +4,8 @@ import time
 import numpy as np
 
 # --- CONFIGURAÇÕES GLOBAIS ---
-SIZE_TANQUE = 5     # Matriz da Direita (Tanque)
-SIZE_AMBIENTE = 7   # Matriz da Esquerda (Ambiente)
+SIZE_TANQUE = 3     # Matriz da Direita (Tanque)
+SIZE_AMBIENTE = 5   # Matriz da Esquerda (Ambiente)
 NUM_ATOMS = 9       # Número total de átomos
 N_MOVIMENTOS = 500  # Número de passos de movimento na simulação
 DELAY = 0.05        # Atraso em segundos entre cada movimento
@@ -17,10 +17,19 @@ SCREEN_WIDTH = (SIZE_AMBIENTE + SIZE_TANQUE) * CELL_SIZE + GAP + 100
 SCREEN_HEIGHT = SIZE_AMBIENTE * CELL_SIZE + 100
 
 # Centraliza o grid
-TOTAL_WIDTH = (SIZE_AMBIENTE * CELL_SIZE) + GAP + (SIZE_TANQUE * CELL_SIZE)
-START_X_AMBIENTE = - TOTAL_WIDTH / 2
-START_X_TANQUE = START_X_AMBIENTE + (SIZE_AMBIENTE * CELL_SIZE) + GAP
-START_Y = - (SIZE_AMBIENTE / 2) * CELL_SIZE # Linha de base Y
+# Largura dos componentes individuais
+width_amb = SIZE_AMBIENTE * CELL_SIZE
+width_tanque = SIZE_TANQUE * CELL_SIZE
+
+# Cálculo total
+TOTAL_WIDTH = width_amb + GAP + width_tanque
+
+# Coordenadas Iniciais
+START_X_AMBIENTE = -TOTAL_WIDTH / 2
+START_X_TANQUE = START_X_AMBIENTE + width_amb + GAP
+
+# Centralização vertical
+START_Y = -width_amb / 2
 
 def map_coords_to_screen(matrix_id, row, col):
     """Mapeia coordenadas (id da matriz, linha, coluna) para coordenadas (x, y) da tela."""
