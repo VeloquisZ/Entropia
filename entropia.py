@@ -7,8 +7,8 @@ import numpy as np
 
 size_tank = 3     #tamanho do tank
 size_ambiente = 5   #tamanho do ambiente
-n_movimentos = 500  #numero de passos de movimento na simulação
-delay = 0.50        #atraso em segundos entre cada movimento
+n_movimentos = 900  #numero de passos de movimento na simulação
+delay = 0.05        #atraso em segundos entre cada movimento
 
 #configurações da tela
 tamanho_grad = 60
