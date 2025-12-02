@@ -6,7 +6,7 @@ import math
 from itertools import product
 
 # --- CONFIGURAÇÕES GLOBAIS ---
-SIZE_TANQUE = 3     # Matriz da Direita (Tanque)
+SIZE_TANQUE = 5     # Matriz da Direita (Tanque)
 SIZE_AMBIENTE = 5   # Matriz da Esquerda (Ambiente)
 NUM_ATOMS = 9       # Número total de átomos
 N_MOVIMENTOS = 1000 # Número de passos na simulação (Loop da animação)

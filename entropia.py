@@ -14,57 +14,91 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# configurações da tela
-screen = turtle.Screen()
-screen.setup(width=500, height=500)
-screen.title("Entropia")
+size_motor = 5     # tamanho da Direita (Tanque)
+size_ambiente = 7   # tamanho da Esquerda (Ambiente)
+num_atom = 9       # Número total de átomos
+n_movimentos = 500  # Número de passos de movimento na simulação
+delay = 0.05        # Atraso em segundos entre cada movimento
 
-class Entropia():#classe que vai gerencia a logica
+#classe que vai gerencia a logica
+class Entropia():   
     
     def __init__(self):
         self.sizes = {0 : size_ambiente ,1 : size_motor}
         self.espaco_ocupados = set()
-        initial_tanque_positions = []
+        posicao_inicial_tank = []
         for r in range(size_ambiente):
             for c in range(size_motor):
-                initial_tanque_positions.append((1, r, c))
+                posicao_inicial_tank.append((1, r, c))
                 
-                self.atoms_list = np.array(initial_tanque_positions, dtype=int) 
+                self.atoms_list = np.array(posicao_inicial_tank, dtype=int) 
 
         # Preenche o set de ocupação inicial
-        for pos in initial_tanque_positions:
-            self.occupied_positions.add(pos)
+        for posicao in posicao_inicial_tank:
+            self.posicoes_ocupadas.add(posicao)
+
+
+pen = turtle.Turtle()
+pen.hideturtle()
 
 def draw_atomo():
     pass
 
+def draw_grid(inicio_x, inicio_y, size):
+    """Desenha as linhas de uma matriz."""
+    pen.speed(0)
+    pen.penup()
+    pen.pensize(2)
+    
+    end_coord_x = inicio_x + size * CELL_SIZE
+    end_coord_y = inicio_y + size * CELL_SIZE
+    
+    for i in range(size + 1):
+        # Linhas Verticais
+        x = inicio_x + i * CELL_SIZE
+        pen.goto(x, inicio_y)
+        pen.pendown()
+        pen.goto(x, end_coord_y)
+        pen.penup()
+        
+        # Linhas Horizontais
+        y = inicio_y + i * CELL_SIZE
+        pen.goto(inicio_x, y)
+        pen.pendown()
+        pen.goto(end_coord_x, y)
+        pen.penup()
 
+#configurações da tela
+def config_tela():
+    """Configura a tela do Turtle e desenha as duas matrizes."""
+    screen = turtle.Screen()
+    screen.setup(width=SCREEN_WIDTH, height=SCREEN_HEIGHT)
+    screen.title("Entropia")
+    screen.tracer(0) 
 
+    # Desenha Matriz Ambiente (Esquerda, 5x5)
+    draw_grid(START_X_AMBIENTE, START_Y, SIZE_AMBIENTE)
+    
+    # Desenha Matriz Tanque (Direita, 3x3)
+    draw_grid(START_X_TANQUE, START_Y, SIZE_TANQUE)
 
-#função que cria grades
-def grids(x,y,linhas,colunas,size):
-       pen = turtle.Turtle()
-       pen.speed(0)
-       pen.penup()
-       #comeco da grade
-       pen.goto(x,y)
-       pen.hideturtle()
-       #loop com linhas
-       for i in range(linhas):
-              #loop com colunas
-              for j in range(colunas):
-                     #desenhando quadrdos
-                     for _ in range(4):
-                            pen.pendown()
-                            pen.forward(size)
-                            pen.right(90)
-                            pen.penup()
-                     #apos fazer um quadrado vai para a proxima posição
-                     pen.forward(size)
-              #mexe o pincel para a comeca a proxima linha
-              pen.goto(x,y - (i  + 1) * size)
-              
-              
+    # Indica a Ligação Especial (Motor: Tanque(0,0) -> Ambiente(0,4))
+    pen.penup()
+    pen.pensize(3)
+    
+    # Posição de Saída (Tanque 3x3, 0, 0)
+    x1, y1 = map_coords_to_screen(1, 0, 0)
+    # Posição de Entrada (Ambiente 5x5, 0, 4)
+    x2, y2 = map_coords_to_screen(0, 0, SIZE_AMBIENTE - 1)
+    
+    # Desenha um marcador de ligação 
+    pen.goto(x1, y1)
+    pen.dot(10, "gray")
+    pen.goto(x2, y2)
+    pen.dot(10, "gray")
+    
+    return screen, pen
+
 
 #grids(x = -200, y = 100, colunas = 3, linhas = 3, size = 50)
 #grids(x = 100, y = 200, colunas = 5, linhas = 5, size = 50)

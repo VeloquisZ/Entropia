@@ -116,7 +116,6 @@ class DualGridSimulator:
 
 # ----------------------------------------------------------------------
 ## FUNÇÕES GRÁFICAS (Turtle)
-
 def draw_grid(t, start_x, start_y, size, color):
     """Desenha as linhas de uma matriz."""
     t.speed(0)
@@ -141,7 +140,7 @@ def draw_grid(t, start_x, start_y, size, color):
         t.pendown()
         t.goto(end_coord_x, y)
         t.penup()
-
+              
 def setup_screen():
     """Configura a tela do Turtle e desenha as duas matrizes."""
     screen = turtle.Screen()
